@@ -15,6 +15,10 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
+  servlet:
+    multipart:
+      max-file-size: 128MB
+      max-request-size: 128MB
 
   datasource:
     jdbc-url: jdbc:postgresql://localhost:5432/postgres

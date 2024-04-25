@@ -1,5 +1,6 @@
 package com.lumenprototype.config;
 
+import com.lumenprototype.comm.FileStorageService;
 import com.lumenprototype.function.upscale.UpscaleRepository;
 import com.lumenprototype.function.upscale.UpscaleService;
 import com.lumenprototype.function.upscale.UpscaleServiceImpl;
@@ -14,8 +15,8 @@ import org.springframework.context.annotation.Configuration;
 public class AppConfig {
 
     @Bean
-    public UpscaleService upscaleService(UpscaleRepository upscaleRepository){
-        return new UpscaleServiceImpl(upscaleRepository);
+    public UpscaleService upscaleService(UpscaleRepository upscaleRepository, FileStorageService fileStorageService) {
+        return new UpscaleServiceImpl(upscaleRepository, fileStorageService);
     }
 
 }

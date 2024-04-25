@@ -1,11 +1,18 @@
 package com.lumenprototype.function.upscale.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.sql.Timestamp;
 
 @Data
 @Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "processing_tasks")
 public class ProcessingTask {
 
@@ -23,7 +30,7 @@ public class ProcessingTask {
     @Column(columnDefinition = "jsonb")
     private String parameters;
 
-    @Column
+    @Column(nullable = false)
     private Timestamp date;
 
     @Column
@@ -35,4 +42,8 @@ public class ProcessingTask {
     @Column(columnDefinition = "jsonb")
     private String result;
 
+    @PrePersist
+    protected void onCreate() {
+        date = new Timestamp(System.currentTimeMillis());
+    }
 }

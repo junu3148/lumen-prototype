@@ -1,13 +1,12 @@
 package com.lumenprototype.function.upscale;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lumenprototype.comm.FileInfo;
 import com.lumenprototype.function.upscale.comm.HistoryRequest;
+import com.lumenprototype.function.upscale.entity.ProcessingTask;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -17,9 +16,12 @@ import java.util.List;
 @RequestMapping("upscale/")
 public class UpscaleController {
 
+
+    private final ObjectMapper objectMapper;
     private final UpscaleService upscaleService;
 
-    public UpscaleController(@Qualifier("upscaleServiceImpl") UpscaleService upscaleService) {
+    public UpscaleController(ObjectMapper objectMapper, @Qualifier("upscaleServiceImpl") UpscaleService upscaleService) {
+        this.objectMapper = objectMapper;
         this.upscaleService = upscaleService;
     }
 
@@ -31,10 +33,12 @@ public class UpscaleController {
 
     // 업스케일
     @PostMapping("upscaling")
-    public void upscaling(MultipartFile file) {
-        System.out.println("호출");
+    public void upscaling(@RequestParam("file") MultipartFile file, @ModelAttribute ProcessingTask processingTask) {
+
+        upscaleService.upscale(file, processingTask);
 
     }
 
 
 }
+
