@@ -1,39 +1,44 @@
 package com.lumenprototype.function.upscale;
 
-import com.lumenprototype.comm.FileStorageProperties;
+import com.lumenprototype.comm.FileInfo;
+import com.lumenprototype.function.upscale.comm.HistoryRequest;
 import com.lumenprototype.function.upscale.entity.ProcessingTask;
 import lombok.RequiredArgsConstructor;
-import com.lumenprototype.comm.FileInfo;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UpscaleServiceImpl implements UpscaleService{
 
     private final UpscaleRepository upscaleRepository;
-    private final FileStorageProperties fileStorageProperties;
 
-    public ResponseEntity<?> findAllHistory(Integer userId) {
+    // 히스토리 조회
+    public ResponseEntity<List<FileInfo>> findAllHistory(HistoryRequest historyRequest) {
+
         try {
-            List<ProcessingTask> histories = upscaleRepository.findAllByUserId(userId);
+           List<ProcessingTask> histories = upscaleRepository.findAllByUserIdAndFunctionName(historyRequest.getUserId(), historyRequest.getFunctionName());
             if (histories.isEmpty()) {
                 return ResponseEntity.noContent().build();
             }
-
             List<FileInfo> fileInfos = histories.stream()
-                    .map(task -> {
-                        String fullPath = fileStorageProperties.getUploadDir() + task.getFileName() + ".jpg";
-                        return new FileInfo(task.getFileName(), fullPath);
-                    })
-                    .collect(Collectors.toList());
-
+                    .map(task -> new FileInfo(
+                            task.getTaskId(),
+                            task.getFileName(),
+                            task.getFunction().getFunctionName(),
+                            task.getParameters(),
+                            task.getDate(),
+                            task.getUserId(),
+                            task.getStatus(),
+                            task.getResult()
+                    ))
+                    .toList();
             return ResponseEntity.ok(fileInfos);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Error retrieving data: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

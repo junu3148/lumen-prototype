@@ -1,10 +1,13 @@
 package com.lumenprototype.function.upscale;
 
 
+import com.lumenprototype.comm.FileInfo;
+import com.lumenprototype.function.upscale.comm.HistoryRequest;
 import org.springframework.http.ResponseEntity;
 
-public interface UpscaleService {
+import java.util.List;
 
-     ResponseEntity<?>  findAllHistory(Integer userId);
+public interface UpscaleService {
+     ResponseEntity<List<FileInfo>> findAllHistory(HistoryRequest historyRequest);
 }
 

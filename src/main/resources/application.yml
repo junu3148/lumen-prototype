@@ -1,4 +1,4 @@
-# server ??
+# server
 server:
   port: 8081
   servlet:
@@ -9,10 +9,9 @@ server:
       force: true
 
 
-# Spring ??
 spring:
 
-  # ?? ???
+  # 자동 재부팅
   main:
     allow-bean-definition-overriding: true
 

@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "functions")
+@Table(name = "function")
 public class Function {
 
     @Id
@@ -14,7 +14,6 @@ public class Function {
     private Integer functionId;
 
     @Column(nullable = false)
-    private String functionName;
-
-
+    @Enumerated(EnumType.STRING)
+    private FunctionName functionName;
 }
