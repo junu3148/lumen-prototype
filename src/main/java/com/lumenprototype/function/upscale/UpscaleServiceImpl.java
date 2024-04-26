@@ -2,6 +2,7 @@ package com.lumenprototype.function.upscale;
 
 import com.lumenprototype.comm.FileInfo;
 import com.lumenprototype.comm.FileStorageService;
+import com.lumenprototype.comm.FileUrl;
 import com.lumenprototype.config.FfmpegConfig;
 import com.lumenprototype.function.upscale.comm.HistoryRequest;
 import com.lumenprototype.function.upscale.entity.FileSuffixType;
@@ -9,7 +10,6 @@ import com.lumenprototype.function.upscale.entity.ProcessingTask;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-@Service
+
 @RequiredArgsConstructor
 public class UpscaleServiceImpl implements UpscaleService {
 
@@ -59,8 +59,10 @@ public class UpscaleServiceImpl implements UpscaleService {
         }
     }
 
+    // 업스케일
     @Override
-    public void upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
+    @Transactional
+    public FileUrl upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
         if (multipartFile == null || multipartFile.isEmpty()) {
             throw new RuntimeException("파일이 전송되지 않았습니다.");
         }
@@ -74,11 +76,41 @@ public class UpscaleServiceImpl implements UpscaleService {
             // 파일 객체 생성 시 스트림을 사용하여 파일을 생성합니다.
             Files.copy(inputStream, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-            // 원본 저장
+            // 1. 원본 저장
             fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
 
-            // 썸네일 저장
-            captureFrameFromVideo(file, fileName);
+            // 2. 썸네일 저장
+            //captureFrameFromVideo(file, fileName);
+
+            // 3. AI통신
+            //fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
+
+            /*
+            // 4. DB 메타데이터 저장
+            String functionNameStr = processingTask.getFunctionName();
+            // 함수 이름의 유효성을 검사합니다.
+            if (functionNameStr == null || functionNameStr.isEmpty()) {
+                throw new IllegalArgumentException("Function name cannot be null or empty");
+            }
+
+            FunctionName functionName;
+            try {
+                functionName = FunctionName.valueOf(functionNameStr.toUpperCase()); // 열거형 이름을 안전하게 가져옵니다.
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Invalid function name: " + functionNameStr);
+            }
+
+            // Function 객체를 조회합니다.
+            Function function = upscaleRepository.findByFunctionName(functionName)
+                    .orElseThrow(() -> new RuntimeException("Function not found: " + functionNameStr));
+
+            // ProcessingTask에 Function을 설정합니다.
+            processingTask.setFunction(function);
+
+            // ProcessingTask를 저장합니다.
+            upscaleRepository.save(processingTask);
+            */
+
 
 
         } catch (IOException e) {
@@ -86,20 +118,23 @@ public class UpscaleServiceImpl implements UpscaleService {
             throw new RuntimeException("Failed to read multipart file: " + e.getMessage());
         }
 
+        // 파일 URL 구성
+        String beforeUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.BEFORE);
+        String afterUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.AFTER);
 
-
-
-        System.out.println("processing task: " + processingTask);
+        // 파일 URL을 포함한 객체 반환
+        return FileUrl.builder()
+                .beforeUrl(beforeUrl)
+                .afterUrl(afterUrl)
+                .build();
     }
 
-
+    // 썸네일 추출
     public void captureFrameFromVideo(File videoFile, String fileName) {
         File outputFile = null;
         try {
             String outputFileName = fileName + ".jpg";
             Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
-            System.out.println("이건 뭔가 " +
-                    ""+tempDir);
             outputFile = new File(tempDir.toFile(), outputFileName);
 
             List<String> command = Arrays.asList(
@@ -109,8 +144,6 @@ public class UpscaleServiceImpl implements UpscaleService {
                     "-frames:v", "1",
                     outputFile.getAbsolutePath()
             );
-
-
 
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.redirectErrorStream(true);
@@ -128,7 +161,5 @@ public class UpscaleServiceImpl implements UpscaleService {
             e.printStackTrace();
         }
     }
-
-
 
 }

@@ -37,6 +37,7 @@ spring:
 
 file:
   upload-dir: C:\\lumen\\upload\\
+  baseUrl: http://localhost:8081/files/video/
 
 ffmpeg:
   path: "C:\\Program Files (x86)\\ffmpegyag\\bin"

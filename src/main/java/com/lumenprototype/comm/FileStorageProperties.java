@@ -11,4 +11,8 @@ public class FileStorageProperties {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
+    @Value("${file.baseUrl}")
+    private String baseUrl;
+
+
 }

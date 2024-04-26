@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 @ComponentScan("com.lumenprototype")
@@ -15,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 public class AppConfig {
 
     @Bean
+    @Primary
     public UpscaleService upscaleService(UpscaleRepository upscaleRepository, FileStorageService fileStorageService, FfmpegConfig ffmpegConfig) {
         return new UpscaleServiceImpl(upscaleRepository, fileStorageService, ffmpegConfig);
     }
