@@ -1,6 +1,5 @@
 package com.lumenprototype.config;
 
-import com.lumenprototype.comm.FileStorageProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

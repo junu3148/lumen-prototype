@@ -6,6 +6,8 @@ import com.lumenprototype.comm.FileUrl;
 import com.lumenprototype.config.FfmpegConfig;
 import com.lumenprototype.function.upscale.comm.HistoryRequest;
 import com.lumenprototype.function.upscale.entity.FileSuffixType;
+import com.lumenprototype.function.upscale.entity.Function;
+import com.lumenprototype.function.upscale.entity.FunctionName;
 import com.lumenprototype.function.upscale.entity.ProcessingTask;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +46,7 @@ public class UpscaleServiceImpl implements UpscaleService {
             List<FileInfo> fileInfos = histories.stream()
                     .map(task -> new FileInfo(
                             task.getTaskId(),
-                            task.getFileName(),
+                            task.getFileName()+"_img",
                             task.getFunction().getFunctionName(),
                             task.getParameters(),
                             task.getDate(),
@@ -80,12 +82,12 @@ public class UpscaleServiceImpl implements UpscaleService {
             fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
 
             // 2. 썸네일 저장
-            //captureFrameFromVideo(file, fileName);
+            captureFrameFromVideo(file, fileName);
 
             // 3. AI통신
-            //fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
+            fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
 
-            /*
+
             // 4. DB 메타데이터 저장
             String functionNameStr = processingTask.getFunctionName();
             // 함수 이름의 유효성을 검사합니다.
@@ -109,8 +111,6 @@ public class UpscaleServiceImpl implements UpscaleService {
 
             // ProcessingTask를 저장합니다.
             upscaleRepository.save(processingTask);
-            */
-
 
 
         } catch (IOException e) {

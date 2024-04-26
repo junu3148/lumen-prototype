@@ -1,5 +1,6 @@
 package com.lumenprototype.comm;
 
+import com.lumenprototype.config.FileStorageProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -24,6 +25,7 @@ public class FileDownloadController {
     private final FileStorageService fileStorageService;
     private final ResourceLoader resourceLoader;
 
+    /*
     // 히스토리 썸네일 반환
     @GetMapping("img/{filename:.+}")
     public ResponseEntity<Resource> getFile(@PathVariable("filename") String filename) {
@@ -31,13 +33,13 @@ public class FileDownloadController {
             String imageFileName = filename + "_img.jpg";
             Path file = Paths.get(fileStorageProperties.getUploadDir()).resolve(imageFileName).normalize();
             Resource resource = new UrlResource(file.toUri());
+
             if (resource.exists() || resource.isReadable()) {
                 return ResponseEntity.ok().body(resource);
             } else {
                 return ResponseEntity.notFound().build();
             }
         } catch (Exception e) {  // 일반 Exception을 캐치하여 에러 로깅
-            e.printStackTrace(); // 콘솔에 스택 트레이스 출력
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -45,7 +47,7 @@ public class FileDownloadController {
     @GetMapping("video/{filename:.+}")
     public ResponseEntity<Resource> getVideoFile(@PathVariable("filename") String filename) {
         try {
-            String videoFileName = filename + ".mp4"; // 확장자를 .mp4로 가정
+            String videoFileName = filename + ".mp4";
             Path file = Paths.get(fileStorageProperties.getUploadDir()).resolve(videoFileName).normalize();
             Resource resource = new UrlResource(file.toUri());
 
@@ -58,11 +60,53 @@ public class FileDownloadController {
                 return ResponseEntity.notFound().build();
             }
         } catch (Exception e) {
-            // 예외 발생 시 적절한 예외 처리
-            e.printStackTrace(); // 콘솔에 스택 트레이스 출력
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+*/
+
+    // 주어진 mediaType과 filename을 기반으로 파일을 찾아 반환합니다.
+    @GetMapping("{mediaType}/{filename:.+}")
+    public ResponseEntity<Resource> getFile(@PathVariable("mediaType") String mediaType, @PathVariable("filename") String filename) {
+        String extension = getExtensionByMediaType(mediaType);
+        if (extension == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            String finalFileName = filename + extension;
+            Path filePath = Paths.get(fileStorageProperties.getUploadDir()).resolve(finalFileName).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(getMediaTypeForFile(extension))
+                    .body(resource);
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
+    // mediaType에 따라 파일 확장자를 결정하는 헬퍼 메서드
+    private String getExtensionByMediaType(String mediaType) {
+        return switch (mediaType) {
+            case "img" -> ".jpg";
+            case "video" -> ".mp4";
+            default -> null;
+        };
+    }
 
+    // 파일 확장자에 따라 적절한 MediaType을 반환하는 헬퍼 메서드
+    private MediaType getMediaTypeForFile(String extension) {
+        return switch (extension) {
+            case ".jpg" -> MediaType.IMAGE_JPEG;
+            case ".mp4" -> MediaType.parseMediaType("video/mp4");
+            default -> MediaType.APPLICATION_OCTET_STREAM;
+        };
+    }
 }
+
+
