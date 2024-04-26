@@ -37,3 +37,9 @@ spring:
 
 file:
   upload-dir: C:\\lumen\\upload\\
+
+ffmpeg:
+  path: "C:\\Program Files (x86)\\ffmpegyag\\bin"
+
+java:
+  path: "C:\\lumen\\jdk-17\\bin"

@@ -15,8 +15,8 @@ import org.springframework.context.annotation.Configuration;
 public class AppConfig {
 
     @Bean
-    public UpscaleService upscaleService(UpscaleRepository upscaleRepository, FileStorageService fileStorageService) {
-        return new UpscaleServiceImpl(upscaleRepository, fileStorageService);
+    public UpscaleService upscaleService(UpscaleRepository upscaleRepository, FileStorageService fileStorageService, FfmpegConfig ffmpegConfig) {
+        return new UpscaleServiceImpl(upscaleRepository, fileStorageService, ffmpegConfig);
     }
 
 }
