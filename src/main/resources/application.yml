@@ -44,3 +44,16 @@ ffmpeg:
 
 java:
   path: "C:\\lumen\\jdk-17\\bin"
+
+
+# Pixell API통신
+pixell:
+  api:
+    key: "your_api_key_here"
+    url: "https://api.aipixell.com"
+
+
+# Flask 서버 AI API 통신
+flask:
+  server:
+    url: http://192.168.0.22:5000

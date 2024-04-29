@@ -3,7 +3,6 @@ package com.lumenprototype.comm;
 import com.lumenprototype.config.FileStorageProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -22,48 +21,6 @@ import java.nio.file.Paths;
 public class FileDownloadController {
 
     private final FileStorageProperties fileStorageProperties;
-    private final FileStorageService fileStorageService;
-    private final ResourceLoader resourceLoader;
-
-    /*
-    // 히스토리 썸네일 반환
-    @GetMapping("img/{filename:.+}")
-    public ResponseEntity<Resource> getFile(@PathVariable("filename") String filename) {
-        try {
-            String imageFileName = filename + "_img.jpg";
-            Path file = Paths.get(fileStorageProperties.getUploadDir()).resolve(imageFileName).normalize();
-            Resource resource = new UrlResource(file.toUri());
-
-            if (resource.exists() || resource.isReadable()) {
-                return ResponseEntity.ok().body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {  // 일반 Exception을 캐치하여 에러 로깅
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    @GetMapping("video/{filename:.+}")
-    public ResponseEntity<Resource> getVideoFile(@PathVariable("filename") String filename) {
-        try {
-            String videoFileName = filename + ".mp4";
-            Path file = Paths.get(fileStorageProperties.getUploadDir()).resolve(videoFileName).normalize();
-            Resource resource = new UrlResource(file.toUri());
-
-            // 비디오 파일이 존재하고 읽을 수 있는 경우
-            if (resource.exists() || resource.isReadable()) {
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType("video/mp4")) // 비디오의 MIME 타입으로 설정
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-*/
 
     // 주어진 mediaType과 filename을 기반으로 파일을 찾아 반환합니다.
     @GetMapping("{mediaType}/{filename:.+}")

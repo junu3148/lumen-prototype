@@ -1,9 +1,14 @@
 package com.lumenprototype.function.upscale;
 
+import com.lumenprototype.api.AiService;
+import com.lumenprototype.api.PixellAPIService;
 import com.lumenprototype.comm.FileInfo;
 import com.lumenprototype.comm.FileStorageService;
 import com.lumenprototype.comm.FileUrl;
 import com.lumenprototype.config.FfmpegConfig;
+import com.lumenprototype.exception.FileTransferException;
+import com.lumenprototype.exception.MetadataValidationException;
+import com.lumenprototype.exception.ResourceNotFoundException;
 import com.lumenprototype.function.upscale.comm.HistoryRequest;
 import com.lumenprototype.function.upscale.entity.FileSuffixType;
 import com.lumenprototype.function.upscale.entity.Function;
@@ -23,6 +28,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 
@@ -32,6 +38,8 @@ public class UpscaleServiceImpl implements UpscaleService {
     private final UpscaleRepository upscaleRepository;
     private final FileStorageService fileStorageService;
     private final FfmpegConfig ffmpegConfig;
+    private final PixellAPIService pixellAPIService;
+    private final AiService aiService;
 
     // 히스토리 조회
     @Override
@@ -46,7 +54,7 @@ public class UpscaleServiceImpl implements UpscaleService {
             List<FileInfo> fileInfos = histories.stream()
                     .map(task -> new FileInfo(
                             task.getTaskId(),
-                            task.getFileName()+"_img",
+                            task.getFileName() + "_img",
                             task.getFunction().getFunctionName(),
                             task.getParameters(),
                             task.getDate(),
@@ -61,21 +69,20 @@ public class UpscaleServiceImpl implements UpscaleService {
         }
     }
 
+    /*
     // 업스케일
     @Override
     @Transactional
     public FileUrl upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
         if (multipartFile == null || multipartFile.isEmpty()) {
-            throw new RuntimeException("파일이 전송되지 않았습니다.");
+            throw new FileTransferException("파일이 전송되지 않았습니다.", null);
         }
         String fileName = String.valueOf(UUID.randomUUID());
         processingTask.setFileName(fileName);
 
         try {
-            File file = new File(multipartFile.getOriginalFilename());
-            // 파일 스트림을 이용하여 파일 객체 생성
+            File file = new File(Objects.requireNonNull(multipartFile.getOriginalFilename()));
             InputStream inputStream = multipartFile.getInputStream();
-            // 파일 객체 생성 시 스트림을 사용하여 파일을 생성합니다.
             Files.copy(inputStream, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
             // 1. 원본 저장
@@ -88,34 +95,27 @@ public class UpscaleServiceImpl implements UpscaleService {
             fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
 
 
-            // 4. DB 메타데이터 저장
+            // 4. DB 메타 데이터 저장
             String functionNameStr = processingTask.getFunctionName();
-            // 함수 이름의 유효성을 검사합니다.
             if (functionNameStr == null || functionNameStr.isEmpty()) {
-                throw new IllegalArgumentException("Function name cannot be null or empty");
+                throw new MetadataValidationException("Function name cannot be null or empty");
             }
 
             FunctionName functionName;
             try {
-                functionName = FunctionName.valueOf(functionNameStr.toUpperCase()); // 열거형 이름을 안전하게 가져옵니다.
+                functionName = FunctionName.valueOf(functionNameStr.toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Invalid function name: " + functionNameStr);
+                throw new MetadataValidationException("Invalid function name: " + functionNameStr);
             }
 
-            // Function 객체를 조회합니다.
             Function function = upscaleRepository.findByFunctionName(functionName)
-                    .orElseThrow(() -> new RuntimeException("Function not found: " + functionNameStr));
+                    .orElseThrow(() -> new ResourceNotFoundException("Function not found: " + functionNameStr));
 
-            // ProcessingTask에 Function을 설정합니다.
             processingTask.setFunction(function);
-
-            // ProcessingTask를 저장합니다.
             upscaleRepository.save(processingTask);
 
-
         } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Failed to read multipart file: " + e.getMessage());
+            throw new FileTransferException("Failed to read multipart file: " + e.getMessage(), e);
         }
 
         // 파일 URL 구성
@@ -128,6 +128,88 @@ public class UpscaleServiceImpl implements UpscaleService {
                 .afterUrl(afterUrl)
                 .build();
     }
+
+*/
+
+
+    // 업스케일
+    @Override
+    @Transactional
+    public FileUrl upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
+        if (multipartFile == null || multipartFile.isEmpty()) {
+            throw new FileTransferException("파일이 전송되지 않았습니다.", null);
+        }
+        String fileName = String.valueOf(UUID.randomUUID());
+        processingTask.setFileName(fileName);
+
+        String afterUrl;
+        try {
+            File file = new File(Objects.requireNonNull(multipartFile.getOriginalFilename()));
+            InputStream inputStream = multipartFile.getInputStream();
+            Files.copy(inputStream, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            // 1. 원본 저장
+            fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
+
+            // 2. 썸네일 저장
+            captureFrameFromVideo(file, fileName);
+
+
+            afterUrl = "";
+            // 3. AI통신
+            if (processingTask.getModelName().startsWith("Pixell")) {
+                // Pixell API통신
+                File pixelFile = pixellAPIService.pixellAPI(multipartFile);
+                //fileStorageService.storeFile(pixelFile, fileName, FileSuffixType.AFTER);
+
+            } else {
+                // 자체 모델 API통신
+
+                String prompt = "happy dog";
+                afterUrl = aiService.promptTextToVideo(prompt);
+                System.out.println(afterUrl);
+
+                //fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
+            }
+
+            // 4. DB 메타 데이터 저장
+            Function function = processFunctionName(processingTask);
+            processingTask.setFunction(function);
+            upscaleRepository.save(processingTask);
+
+        } catch (IOException e) {
+            throw new FileTransferException("Failed to read multipart file: " + e.getMessage(), e);
+        }
+
+        // 파일 URL 구성
+        String beforeUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.BEFORE);
+        //String afterUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.AFTER);
+
+        // 파일 URL을 포함한 객체 반환
+        return FileUrl.builder()
+                .beforeUrl(beforeUrl)
+                .afterUrl(afterUrl)
+                .build();
+    }
+
+
+    private Function processFunctionName(ProcessingTask processingTask) throws MetadataValidationException, ResourceNotFoundException {
+        String functionNameStr = processingTask.getFunctionName();
+        if (functionNameStr == null || functionNameStr.isEmpty()) {
+            throw new MetadataValidationException("Function name cannot be null or empty");
+        }
+
+        FunctionName functionName;
+        try {
+            functionName = FunctionName.valueOf(functionNameStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new MetadataValidationException("Invalid function name: " + functionNameStr);
+        }
+
+        return upscaleRepository.findByFunctionName(functionName)
+                .orElseThrow(() -> new ResourceNotFoundException("Function not found: " + functionNameStr));
+    }
+
 
     // 썸네일 추출
     public void captureFrameFromVideo(File videoFile, String fileName) {
@@ -156,8 +238,10 @@ public class UpscaleServiceImpl implements UpscaleService {
 
             fileStorageService.storeFile(outputFile, fileName, FileSuffixType.IMAGE);
 
-        } catch (IOException | InterruptedException e) {
-            // 예외 처리 로직
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             e.printStackTrace();
         }
     }

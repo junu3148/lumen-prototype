@@ -49,6 +49,9 @@ public class ProcessingTask {
     @Column(columnDefinition = "jsonb")
     private String result;
 
+    @Transient
+    private String modelName;
+
     @PrePersist
     protected void onCreate() {
         date = new Timestamp(System.currentTimeMillis());
