@@ -1,6 +1,6 @@
 package com.lumenprototype.comm;
 
-import com.lumenprototype.config.FileStorageProperties;
+import com.lumenprototype.config.value.FileStorageProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;

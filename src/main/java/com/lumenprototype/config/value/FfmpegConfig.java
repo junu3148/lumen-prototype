@@ -1,4 +1,4 @@
-package com.lumenprototype.config;
+package com.lumenprototype.config.value;
 
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;

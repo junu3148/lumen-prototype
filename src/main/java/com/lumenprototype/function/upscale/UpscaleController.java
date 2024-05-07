@@ -1,8 +1,9 @@
 package com.lumenprototype.function.upscale;
 
+import com.lumenprototype.api.AiService;
 import com.lumenprototype.comm.FileInfo;
-import com.lumenprototype.comm.FileUrl;
-import com.lumenprototype.function.upscale.comm.HistoryRequest;
+import com.lumenprototype.comm.VideoInfo;
+import com.lumenprototype.function.comm.HistoryRequest;
 import com.lumenprototype.function.upscale.entity.ProcessingTask;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import java.util.List;
 public class UpscaleController {
 
     private final UpscaleService upscaleService;
+    private final AiService aiService;
 
 
     // 히스토리 조회
@@ -27,12 +29,15 @@ public class UpscaleController {
 
     // 업스케일
     @PostMapping("upscaling")
-    public FileUrl upscaling(@RequestParam("file") MultipartFile file, @ModelAttribute ProcessingTask processingTask) {
-
+    public List<VideoInfo> upscaling(@RequestParam("file") MultipartFile file, @ModelAttribute ProcessingTask processingTask) {
         return upscaleService.upscale(file, processingTask);
-
     }
 
+    // 테스트
+    @GetMapping("test")
+    public String testConnectionToFastApi() {
+        return aiService.testConnectionToFastApi();
+    }
 
 }
 

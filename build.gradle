@@ -40,6 +40,12 @@ dependencies {
 	// postgres
 	runtimeOnly 'org.postgresql:postgresql'
 
+	// AOP
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	implementation 'ch.qos.logback:logback-classic'
+	implementation 'org.aspectj:aspectjweaver'
+	implementation 'org.slf4j:slf4j-api'
+
 }
 
 tasks.named('test') {

@@ -1,7 +1,7 @@
 package com.lumenprototype.comm;
 
 
-import com.lumenprototype.config.FileStorageProperties;
+import com.lumenprototype.config.value.FileStorageProperties;
 import com.lumenprototype.exception.FileStorageException;
 import com.lumenprototype.function.upscale.entity.FileSuffixType;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +21,7 @@ public class FileStorageService {
 
     private final FileStorageProperties fileStorageProperties;
 
-    public String storeFile(File file, String uuid, FileSuffixType fileSuffixType) {
+    public void storeFile(File file, String uuid, FileSuffixType fileSuffixType) {
         try {
             validateFile(file);
         } catch (IOException e) {
@@ -38,7 +38,7 @@ public class FileStorageService {
             throw new FileStorageException("Failed to store file: " + e.getMessage(), e);
         }
 
-        return constructFileDownloadUri(fileName);
+       // return constructFileDownloadUri(fileName);
     }
 
 

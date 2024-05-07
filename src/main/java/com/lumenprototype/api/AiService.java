@@ -1,16 +1,22 @@
 package com.lumenprototype.api;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Map;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Objects;
 
 @Service
 public class AiService {
@@ -18,71 +24,74 @@ public class AiService {
     @Value("${flask.server.url}")
     private String flaskServerUrl;
 
-    public String promptTextToVideo(String prompt) {
 
-        System.out.println(prompt);
-        // 파이썬 AI 서버 URL
-        String aiServerUrl = flaskServerUrl + "/video"; // Flask 서버 URL 예시
+    // 연결 테스트
+    public String testConnectionToFastApi() {
+        String apiUrl = flaskServerUrl + "/"; // FastAPI 서버 URL
 
-        // 프롬프트를 JSON 형식으로 포장
-        ObjectMapper mapper = new ObjectMapper();
-        String jsonPrompt;
-        try {
-            jsonPrompt = mapper.writeValueAsString(Map.of("prompt", prompt));
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            return null;
-        }
-
-        // HttpHeaders 객체를 생성하고, Content-Type을 application/json으로 설정
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        // HttpEntity 객체를 생성하여 요청 본문과 헤더를 포함
-        HttpEntity<String> entity = new HttpEntity<>(jsonPrompt, headers);
-
-        // RestTemplate을 사용하여 POST 요청을 보냄
+        // RestTemplate을 사용하여 GET 요청
         RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.postForEntity(aiServerUrl, entity, String.class);
+        ResponseEntity<String> response = restTemplate.getForEntity(apiUrl, String.class);
 
-        // 서버로부터의 응답 출력
-        System.out.println("Response from Python server: " + response.getBody());
-
-        // 비디오 URL 반환
-        return response.getBody();
+        // 연결 성공 여부에 따라 메시지 반환
+        return response.getStatusCode().is2xxSuccessful() ? "Connection successful!" : "Connection failed!";
     }
 
-    public String promptTextToImage(String prompt) {
-        // 파이썬 AI 서버 URL
-        String aiServerUrl = "http://127.0.0.1:5000/image"; // 로컬에서 실행 중인 경우
+    // 업스케일된 비디오를 반환하는 메서드
+    public File videoUpscale(MultipartFile multipartFile) {
+        String apiUrl = flaskServerUrl + "/video"; // FastAPI 서버 URL
 
+        // RestTemplate 설정
+        RestTemplate restTemplate = new RestTemplate();
 
-        // 프롬프트를 JSON 형식으로 포장
-        ObjectMapper mapper = new ObjectMapper();
-        String jsonPrompt;
+        // HttpHeaders 객체를 생성하고, Content-Type을 multipart/form-data로 설정
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        // 파일 데이터와 JSON 데이터를 포함하는 MultiValueMap 생성
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         try {
-            jsonPrompt = mapper.writeValueAsString(Map.of("prompt", prompt));
-        } catch (JsonProcessingException e) {
+            // MultipartFile을 Resource로 변환
+            Resource resource = new ByteArrayResource(multipartFile.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return multipartFile.getOriginalFilename(); // 파일 이름 설정
+                }
+            };
+
+            // 파일 데이터를 'video'로 변경하여 추가
+            body.add("video", resource);
+
+            // scaleOption을 문자열로 추가
+            body.add("scaleOption", "1");
+
+        } catch (IOException e) {
             e.printStackTrace();
-            return null;
+            return null; // 오류 발생 시 null 반환
         }
 
-        // HttpHeaders 객체를 생성하고, Content-Type을 application/json으로 설정
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        // HttpEntity 객체 생성
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-        // HttpEntity 객체를 생성하여 요청 본문과 헤더를 포함
-        HttpEntity<String> entity = new HttpEntity<>(jsonPrompt, headers);
+        // POST 요청 보내기
+        ResponseEntity<byte[]> response = restTemplate.postForEntity(apiUrl, requestEntity, byte[].class);
 
-        // RestTemplate을 사용하여 POST 요청을 보냄
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.postForEntity(aiServerUrl, entity, String.class);
+        // 서버로부터의 응답을 파일로 저장
+        try {
+            if (response.getStatusCode().is2xxSuccessful()) {
+                // 임시 파일 생성
+                File outputFile = File.createTempFile("upscaled-video", ".mp4");
+                try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                    fos.write(Objects.requireNonNull(response.getBody())); // 응답을 파일에 쓰기
+                }
+                return outputFile; // 파일 반환
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
-        // 서버로부터의 응답 출력
-        System.out.println("Response from Python server: " + response.getBody());
-
-        // 비디오 URL 반환
-        return response.getBody();
+        return null; // 오류 발생 시 null 반환
     }
+
 
 }

@@ -1,4 +1,4 @@
-package com.lumenprototype.function.upscale.comm;
+package com.lumenprototype.function.comm;
 
 import com.lumenprototype.function.upscale.entity.FunctionName;
 import lombok.Data;

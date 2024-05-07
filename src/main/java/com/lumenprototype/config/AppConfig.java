@@ -1,8 +1,8 @@
 package com.lumenprototype.config;
 
 import com.lumenprototype.api.AiService;
-import com.lumenprototype.api.PixellAPIService;
 import com.lumenprototype.comm.FileStorageService;
+import com.lumenprototype.config.value.FfmpegConfig;
 import com.lumenprototype.function.upscale.UpscaleRepository;
 import com.lumenprototype.function.upscale.UpscaleService;
 import com.lumenprototype.function.upscale.UpscaleServiceImpl;
@@ -23,21 +23,13 @@ public class AppConfig {
         return new RestTemplate();
     }
 
-    // PixellAPIService 빈을 정의합니다.
-    // RestTemplate 빈을 생성자로 주입받습니다.
-    @Bean
-    public PixellAPIService pixellAPIService(RestTemplate restTemplate) {
-        return new PixellAPIService(restTemplate);
-    }
-
     // UpscaleService 빈을 정의합니다.
     // 필요한 다른 빈들을 생성자로 주입받습니다.
     @Bean
     public UpscaleService upscaleService(UpscaleRepository upscaleRepository,
                                          FileStorageService fileStorageService,
                                          FfmpegConfig ffmpegConfig,
-                                         PixellAPIService pixellAPIService,
                                          AiService aiService) {
-        return new UpscaleServiceImpl(upscaleRepository, fileStorageService, ffmpegConfig, pixellAPIService, aiService);
+        return new UpscaleServiceImpl(upscaleRepository, fileStorageService, ffmpegConfig, aiService);
     }
 }

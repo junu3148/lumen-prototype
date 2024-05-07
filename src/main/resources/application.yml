@@ -40,11 +40,10 @@ file:
   baseUrl: http://localhost:8081/files/video/
 
 ffmpeg:
-  path: "C:\\Program Files (x86)\\ffmpegyag\\bin"
+  path: "C:\\ffmpeg\\bin"
 
 java:
   path: "C:\\lumen\\jdk-17\\bin"
-
 
 # Pixell API통신
 pixell:
@@ -52,8 +51,15 @@ pixell:
     key: "your_api_key_here"
     url: "https://api.aipixell.com"
 
-
 # Flask 서버 AI API 통신
 flask:
   server:
-    url: http://192.168.0.22:5000
+    url: http://192.168.0.22:8000
+
+# 로그설정
+logging:
+  level:
+    root: INFO
+    com.lumenprototype: DEBUG
+  file:
+    name: logs/myapp.log
