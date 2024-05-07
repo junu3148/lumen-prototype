@@ -1,4 +1,4 @@
-# server
+# 서버 설정
 server:
   port: 8081
   servlet:
@@ -8,58 +8,55 @@ server:
       enabled: true
       force: true
 
-
+# 스프링 설정
 spring:
-
-  # 자동 재부팅
   main:
-    allow-bean-definition-overriding: true
+    allow-bean-definition-overriding: true # 빈 덮어쓰기를 허용
 
   servlet:
     multipart:
-      max-file-size: 128MB
-      max-request-size: 128MB
+      max-file-size: 128MB # 최대 파일 크기
+      max-request-size: 128MB # 최대 요청 크기
 
   datasource:
-    jdbc-url: jdbc:postgresql://localhost:5432/postgres
-    username: lumen
-    password: 150321
-    driver-class-name: org.postgresql.Driver
+    jdbc-url: jdbc:postgresql://localhost:5432/postgres # PostgreSQL 데이터베이스 URL
+    username: lumen # 데이터베이스 사용자명
+    password: 150321 # 데이터베이스 비밀번호
+    driver-class-name: org.postgresql.Driver # JDBC 드라이버
 
     jpa:
-      show-sql: true
+      show-sql: true # SQL 쿼리를 콘솔에 출력
       hibernate:
-        ddl-auto: update
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        ddl-auto: update # DDL 자동 업데이트
+        dialect: org.hibernate.dialect.PostgreSQLDialect # Hibernate 방언
       naming:
-        physical-strategy: com.lumen-prototype.www.config.CustomNamingStrategy
+        physical-strategy: com.lumenprototype.www.config.CustomNamingStrategy # 커스텀 네이밍 전략
         implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
 
+# 파일 업로드 설정
 file:
-  upload-dir: C:\\lumen\\upload\\
+  upload-dir: Y:\Upscale\\
   baseUrl: http://localhost:8081/files/video/
 
+# FFmpeg 설정
 ffmpeg:
-  path: "C:\\ffmpeg\\bin"
+  path: "C:\\ffmpeg\\bin" # FFmpeg 설치 경로
 
-java:
-  path: "C:\\lumen\\jdk-17\\bin"
-
-# Pixell API통신
+# Pixell API 설정
 pixell:
   api:
-    key: "your_api_key_here"
-    url: "https://api.aipixell.com"
+    key: "your_api_key_here" # API 키
+    url: "https://api.aipixell.com" # API URL
 
-# Flask 서버 AI API 통신
+# Flask 서버 AI API 설정
 flask:
   server:
-    url: http://192.168.0.22:8000
+    url: http://192.168.0.22:8000 # Flask 서버 URL
 
-# 로그설정
+# 로깅 설정
 logging:
   level:
-    root: INFO
-    com.lumenprototype: DEBUG
+    root: INFO # 기본 로깅 레벨
+    com.lumenprototype: DEBUG # 프로젝트 패키지에 대한 디버그 레벨
   file:
-    name: logs/myapp.log
+    name: logs/myapp.log # 로그 파일 경로

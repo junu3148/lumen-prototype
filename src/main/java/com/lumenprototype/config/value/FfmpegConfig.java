@@ -11,6 +11,4 @@ public class FfmpegConfig {
     @Value("${ffmpeg.path}")
     private String ffmpegPath;
 
-    @Value("${java.path}")
-    private String javaPath;
 }
