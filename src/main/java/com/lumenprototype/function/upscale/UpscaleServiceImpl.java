@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 
@@ -37,98 +38,210 @@ public class UpscaleServiceImpl implements UpscaleService {
     private final AiService aiService;
 
 
-    // 히스토리 조회
+    // 히스토리 리시트 조회
     @Override
     @Transactional
     public ResponseEntity<List<FileInfo>> findAllHistory(HistoryRequest historyRequest) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); // 날짜 포맷 정의
 
         try {
-            List<ProcessingTask> histories = upscaleRepository.findAllByUserIdAndFunctionName(historyRequest.getUserId(), historyRequest.getFunctionName());
+            List<ProcessingTask> histories = upscaleRepository.findAllByUserIdAndFunctionName(
+                    historyRequest.getUserId(),
+                    historyRequest.getFunctionName()
+            );
             if (histories.isEmpty()) {
                 return ResponseEntity.noContent().build();
             }
+
             List<FileInfo> fileInfos = histories.stream()
                     .map(task -> new FileInfo(
                             task.getTaskId(),
                             task.getFileName() + "_img",
                             task.getFunction().getFunctionName(),
                             task.getParameters(),
-                            task.getDate(),
+                            sdf.format(task.getDate()),  // Date 객체를 포맷된 문자열로 변환
                             task.getUserId(),
                             task.getStatus(),
                             task.getResult()
                     ))
                     .toList();
+
             return ResponseEntity.ok(fileInfos);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
     }
 
-    // 업스케일
+    // 히스토리 조회
+    @Override
+    public List<VideoInfo> findHistory(HistoryRequest historyRequest) {
+        // 데이터베이스에서 파일 이름으로 ProcessingTask 검색
+        ProcessingTask processingTask = upscaleRepository.findByFileName(historyRequest.getFileName());
+        if (processingTask == null) {
+            log.info("No task found for the file name: {}", historyRequest.getFileName());
+            return new ArrayList<>(); // 빈 리스트 반환
+        }
+
+        // 비디오 정보 리스트 생성 및 반환
+        return buildVideoInfoList(processingTask);
+    }
+
+    // Upscale
     @Override
     @Transactional
     public List<VideoInfo> upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
+        validateFile(multipartFile);
 
-        List<VideoInfo> videoInfoList = new ArrayList<>();
-
-        if (multipartFile == null || multipartFile.isEmpty()) {
-            throw new FileTransferException("파일이 전송되지 않았습니다.", null);
-        }
-        String fileName = String.valueOf(UUID.randomUUID());
+        String fileName = UUID.randomUUID().toString();
         processingTask.setFileName(fileName);
 
+        File file = convertToFile(multipartFile);
         try {
-            File file = new File(Objects.requireNonNull(multipartFile.getOriginalFilename()));
-            InputStream inputStream = multipartFile.getInputStream();
-            Files.copy(inputStream, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            storeOriginalAndProcessedFiles(file, fileName);
+            storeThumbnail(file, fileName);
 
-            // 1. 원본 저장
-            fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
-            fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
-
-            // 2. 썸네일 저장
-            captureFrameFromVideo(file, fileName);
-
-
-            // 3. AI통신
-            if (processingTask.getModelName().startsWith("Pixell")) {
-                // Pixell API통신
-                //File pixelFile = pixellAPIService.pixellAPI(multipartFile);
-                //fileStorageService.storeFile(pixelFile, fileName, FileSuffixType.AFTER);
-                log.error("pixell");
-
+            if (isPixellModel(processingTask)) {
+                handlePixellProcessing(multipartFile, fileName);
             } else {
-                // 자체 모델 API통신
-                //File upscaleFile =aiService.videoUpscale(multipartFile);
-                //fileStorageService.storeFile(upscaleFile, fileName, FileSuffixType.AFTER);
-                log.error("API");
+                handleCustomModelProcessing(multipartFile, fileName);
             }
 
-            // 4. DB 메타 데이터 저장
-            Function function = processFunctionName(processingTask);
-            processingTask.setFunction(function);
-            upscaleRepository.save(processingTask);
+            updateProcessingTaskWithFrameInfo(processingTask, file);
+            saveMetadata(processingTask);
 
-            // 파일 URL 구성
-            String beforeUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.BEFORE);
-            String afterUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.AFTER);
-
-            videoInfoList.add(extractVideoInfo(file,beforeUrl));
-            videoInfoList.add(extractVideoInfo(file,afterUrl));
-
-
-
+            return buildVideoInfoList(processingTask);
         } catch (IOException e) {
-            throw new FileTransferException("Failed to read multipart file: " + e.getMessage(), e);
+            throw new FileTransferException("Failed to process file: " + e.getMessage(), e);
         }
-
-
-        // 파일 URL을 포함한 객체 반환
-        return videoInfoList;
     }
 
+    // 파일 유효성 검증
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new FileTransferException("No file uploaded.", null);
+        }
+    }
 
+    // MultipartFile을 File 객체로 변환
+    private File convertToFile(MultipartFile multipartFile) {
+        try {
+            File file = new File(Objects.requireNonNull(multipartFile.getOriginalFilename()));
+            Files.copy(multipartFile.getInputStream(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            return file;
+        } catch (IOException e) {
+            throw new FileTransferException("Error converting multipart file.", e);
+        }
+    }
+
+    // 원본 및 처리된 파일 저장
+    private void storeOriginalAndProcessedFiles(File file, String fileName) {
+        fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
+        fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
+    }
+
+    // 썸네일 저장
+    private void storeThumbnail(File file, String fileName) {
+        captureFrameFromVideo(file, fileName);
+    }
+
+    // 모델이 Pixell인지 확인
+    private boolean isPixellModel(ProcessingTask task) {
+        return task.getModelName().startsWith("Pixell");
+    }
+
+    // Pixell 모델 처리
+    private void handlePixellProcessing(MultipartFile file, String fileName) {
+        // Implement Pixell API communication logic here
+        log.error("Pixell API processing is not implemented.");
+    }
+
+    // 사용자 정의 모델 처리
+    private void handleCustomModelProcessing(MultipartFile file, String fileName) {
+        // Implement custom model API communication logic here
+        log.error("Custom model API processing is not implemented.");
+    }
+
+    // 프레임 정보를 가지고 처리 작업 업데이트
+    private void updateProcessingTaskWithFrameInfo(ProcessingTask task, File file) throws IOException {
+        ProcessingTask result = extractVideoFrameInfo(file);
+        task.setTotalFrames(result.getTotalFrames());
+        task.setFps(result.getFps());
+    }
+
+    // 메타 데이터 저장
+    private void saveMetadata(ProcessingTask task) {
+        Function function = processFunctionName(task);
+        task.setFunction(function);
+        upscaleRepository.save(task);
+    }
+
+    // 비디오 정보 리스트 생성 및 추가
+    private List<VideoInfo> buildVideoInfoList(ProcessingTask task) {
+        String fileName = task.getFileName();
+        String beforeUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.BEFORE);
+        String afterUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.AFTER);
+
+        return Arrays.asList(
+                new VideoInfo(beforeUrl, task.getTotalFrames(), task.getFps()),
+                new VideoInfo(afterUrl, task.getTotalFrames(), task.getFps())
+        );
+    }
+
+    // 비디오의 총 프레임 수와 FPS를 반환하는 메소드
+    public ProcessingTask extractVideoFrameInfo(File file) throws IOException {
+        // ffprobe 실행 경로를 가져옵니다.
+        String ffprobePath = ffmpegConfig.getFfmpegPath() + "\\ffprobe.exe";
+
+        // ffprobe 명령을 실행하기 위한 ProcessBuilder를 설정합니다.
+        ProcessBuilder processBuilder = new ProcessBuilder(
+                ffprobePath, "-v", "error",
+                "-show_entries", "stream=duration,r_frame_rate",
+                "-of", "csv=p=0",
+                file.getAbsolutePath()
+        );
+
+        processBuilder.redirectErrorStream(true);
+        Process process = processBuilder.start();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line = reader.readLine();
+            if (line != null) {
+                // ffprobe 출력 값을 ','로 분리합니다.
+                String[] values = line.split(",");
+                if (values.length >= 2) {
+                    // 비디오 길이를 가져옵니다.
+                    float duration = Float.parseFloat(values[1]);
+                    // 프레임 속도 정보를 분리합니다.
+                    String[] frameRateParts = values[0].split("/");
+
+                    if (frameRateParts.length == 2) {
+                        try {
+                            // 분자와 분모를 파싱하고 계산합니다.
+                            float numerator = Float.parseFloat(frameRateParts[0]);
+                            float denominator = Float.parseFloat(frameRateParts[1]);
+                            float fps = numerator / denominator; // 프레임 속도 계산
+
+                            // 총 프레임 수를 계산합니다.
+                            int totalFrames = (int) (fps * duration);
+
+                            // 결과를 반환합니다.
+                            return new ProcessingTask(totalFrames, fps);
+                        } catch (NumberFormatException e) {
+                            log.error("Error parsing frame rate: {}, error: {}", values[0], e.getMessage());
+                        }
+                    } else {
+                        log.error("Unexpected frame rate format: {}", values[0]);
+                    }
+                } else {
+                    log.error("Unexpected ffprobe output: {}", line);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // 함수 이름으로 함수 조회
     private Function processFunctionName(ProcessingTask processingTask) throws MetadataValidationException, ResourceNotFoundException {
         String functionNameStr = processingTask.getFunctionName();
         if (functionNameStr == null || functionNameStr.isEmpty()) {
@@ -145,7 +258,6 @@ public class UpscaleServiceImpl implements UpscaleService {
         return upscaleRepository.findByFunctionName(functionName)
                 .orElseThrow(() -> new ResourceNotFoundException("Function not found: " + functionNameStr));
     }
-
 
     // 썸네일 추출
     public void captureFrameFromVideo(File videoFile, String fileName) {
@@ -173,7 +285,6 @@ public class UpscaleServiceImpl implements UpscaleService {
             }
 
             fileStorageService.storeFile(outputFile, fileName, FileSuffixType.IMAGE);
-
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -183,7 +294,14 @@ public class UpscaleServiceImpl implements UpscaleService {
     }
 
 
-    // 프레임 추출
+
+
+
+
+
+    /*
+
+    // 프레임 추출 리턴 객체 반환
     public VideoInfo extractVideoInfo(File file, String beforeUrl) throws IOException {
         // ffprobe 실행 경로를 가져옵니다.
         String ffprobePath = ffmpegConfig.getFfmpegPath() + "\\ffprobe.exe"; // .exe 확장자를 포함한 ffprobe 경로
@@ -237,5 +355,73 @@ public class UpscaleServiceImpl implements UpscaleService {
         return null;
     }
 
+
+    // 업스케일
+    @Override
+    @Transactional
+    public List<VideoInfo> upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
+
+        List<VideoInfo> videoInfoList = new ArrayList<>();
+
+        if (multipartFile == null || multipartFile.isEmpty()) {
+            throw new FileTransferException("파일이 전송되지 않았습니다.", null);
+        }
+        String fileName = String.valueOf(UUID.randomUUID());
+        processingTask.setFileName(fileName);
+
+        try {
+            File file = new File(Objects.requireNonNull(multipartFile.getOriginalFilename()));
+            InputStream inputStream = multipartFile.getInputStream();
+            Files.copy(inputStream, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            // 1. 원본 저장
+            fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
+            fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
+
+            // 2. 썸네일 저장
+            captureFrameFromVideo(file, fileName);
+
+
+            // 3. AI통신
+            if (processingTask.getModelName().startsWith("Pixell")) {
+                // Pixell API통신
+                //File pixelFile = pixellAPIService.pixellAPI(multipartFile);
+                //fileStorageService.storeFile(pixelFile, fileName, FileSuffixType.AFTER);
+                log.error("pixell");
+
+            } else {
+                // 자체 모델 API통신
+                //File upscaleFile =aiService.videoUpscale(multipartFile);
+                //fileStorageService.storeFile(upscaleFile, fileName, FileSuffixType.AFTER);
+                log.error("API");
+            }
+
+            // 프레임 추출
+            ProcessingTask result = extractVideoFrameInfo(file);
+            processingTask.setTotalFrames(result.getTotalFrames());
+            processingTask.setFps(result.getFps());
+
+            // 4. DB 메타 데이터 저장
+            Function function = processFunctionName(processingTask);
+            processingTask.setFunction(function);
+            upscaleRepository.save(processingTask);
+
+            // 파일 URL 구성
+            String beforeUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.BEFORE);
+            String afterUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.AFTER);
+
+            videoInfoList.add(new VideoInfo(beforeUrl, result.getTotalFrames(), result.getFps()));
+            videoInfoList.add(new VideoInfo(afterUrl, result.getTotalFrames(), result.getFps()));
+
+
+        } catch (IOException e) {
+            throw new FileTransferException("Failed to read multipart file: " + e.getMessage(), e);
+        }
+
+
+        // 파일 URL을 포함한 객체 반환
+        return videoInfoList;
+    }
+    */
 
 }

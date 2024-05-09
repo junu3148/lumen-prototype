@@ -7,4 +7,6 @@ import lombok.Data;
 public class HistoryRequest {
     private Integer userId;
     private FunctionName functionName;
+    private String fileName;
+
 }

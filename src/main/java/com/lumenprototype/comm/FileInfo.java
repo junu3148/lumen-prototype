@@ -4,8 +4,6 @@ import com.lumenprototype.function.upscale.entity.FunctionName;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.sql.Timestamp;
-
 @Getter
 @AllArgsConstructor
 public class FileInfo {
@@ -13,7 +11,7 @@ public class FileInfo {
     private String fileName;
     private FunctionName functionName;
     private String parameters;
-    private Timestamp date;
+    private String date;
     private Integer userId;
     private String status;
     private String result;

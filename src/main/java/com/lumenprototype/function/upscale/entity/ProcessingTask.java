@@ -18,6 +18,11 @@ import java.sql.Timestamp;
 @Table(name = "processing_tasks")
 public class ProcessingTask {
 
+   public ProcessingTask(Integer totalFrames, float fps) {
+        this.totalFrames = totalFrames;
+        this.fps = fps;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long taskId;
@@ -48,6 +53,12 @@ public class ProcessingTask {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String result;
+
+    @Column
+    private Integer totalFrames;
+
+    @Column
+    private float fps;
 
     @Transient
     private String modelName;

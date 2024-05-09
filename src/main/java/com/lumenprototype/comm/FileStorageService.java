@@ -12,6 +12,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 @Service
@@ -79,6 +80,22 @@ public class FileStorageService {
     public String getFileUrl(String fileName, FileSuffixType fileSuffixType) {
         // 파일명을 구성합니다.
         return fileStorageProperties.getBaseUrl() + constructFileName(fileName, fileSuffixType, "");
+    }
+
+    public File loadFile(String fileName) {
+        try {
+            File file = Paths.get(fileStorageProperties.getBaseUrl(), fileName).toFile();
+            if (file.exists()) {
+                return file;
+            } else {
+                System.out.println("File not found: " + fileName);
+                return null; // 파일이 없는 경우 null 반환
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading file: " + fileName);
+            e.printStackTrace();
+            return null;
+        }
     }
 
 

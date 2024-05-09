@@ -21,9 +21,9 @@ public class UpscaleController {
     private final AiService aiService;
 
 
-    // 히스토리 조회
+    // 히스토리 리스트 조회
     @PostMapping("history")
-    public ResponseEntity<List<FileInfo>> getHistory(@RequestBody HistoryRequest historyRequest) {
+    public ResponseEntity<List<FileInfo>> getHistoryList(@RequestBody HistoryRequest historyRequest) {
         return upscaleService.findAllHistory(historyRequest);
     }
 
@@ -32,6 +32,14 @@ public class UpscaleController {
     public List<VideoInfo> upscaling(@RequestParam("file") MultipartFile file, @ModelAttribute ProcessingTask processingTask) {
         return upscaleService.upscale(file, processingTask);
     }
+
+    // 히스토리 조회
+    @PostMapping("history1")
+    public List<VideoInfo> getHistory(@RequestBody HistoryRequest historyRequest){
+        return upscaleService.findHistory(historyRequest);
+    }
+
+
 
     // 테스트
     @GetMapping("test")

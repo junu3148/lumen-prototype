@@ -21,10 +21,12 @@ public interface UpscaleRepository extends JpaRepository<ProcessingTask,Long> {
     @Query("SELECT f FROM Function f WHERE f.functionName = :functionName")
     Optional<Function> findByFunctionName(@Param("functionName") FunctionName functionName);
 
-
-/*
     @Query("SELECT pt FROM ProcessingTask pt JOIN FETCH pt.function f WHERE pt.taskId = :taskId")
     ProcessingTask findByTaskId(Long taskId);
-*/
+
+    @Query("SELECT pt FROM ProcessingTask pt JOIN FETCH pt.function f WHERE pt.fileName = :fileName")
+    ProcessingTask findByFileName(String fileName);
+
+
 
 }

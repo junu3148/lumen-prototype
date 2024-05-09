@@ -31,5 +31,10 @@ public interface UpscaleService {
      */
     List<VideoInfo> upscale(MultipartFile file, ProcessingTask processingTask);
 
+
+
+    List<VideoInfo> findHistory(HistoryRequest historyRequest);
+
+
 }
 
