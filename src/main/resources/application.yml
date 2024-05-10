@@ -49,9 +49,10 @@ pixell:
     url: "https://api.aipixell.com" # API URL
 
 # Flask 서버 AI API 설정
-flask:
+fast:
   server:
-    url: http://192.168.0.22:8000 # Flask 서버 URL
+    #url: http://192.168.0.22:8000 # Flask 서버 URL
+    url: http://192.168.0.48:5000 # Fast 서버 URL
 
 # 로깅 설정
 logging:

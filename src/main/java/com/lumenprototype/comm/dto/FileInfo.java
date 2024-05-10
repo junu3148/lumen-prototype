@@ -1,4 +1,4 @@
-package com.lumenprototype.comm;
+package com.lumenprototype.comm.dto;
 
 import com.lumenprototype.function.upscale.entity.FunctionName;
 import lombok.AllArgsConstructor;
@@ -13,6 +13,6 @@ public class FileInfo {
     private String parameters;
     private String date;
     private Integer userId;
-    private String status;
-    private String result;
+    private Integer totalFrames;
+    private float fps;
 }

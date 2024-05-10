@@ -5,8 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.sql.Timestamp;
 
@@ -18,7 +16,7 @@ import java.sql.Timestamp;
 @Table(name = "processing_tasks")
 public class ProcessingTask {
 
-   public ProcessingTask(Integer totalFrames, float fps) {
+    public ProcessingTask(Integer totalFrames, float fps) {
         this.totalFrames = totalFrames;
         this.fps = fps;
     }
@@ -32,33 +30,29 @@ public class ProcessingTask {
     private Function function;
 
     @Transient
+    @Column(nullable = false)
     private String functionName;
 
     @Column(nullable = false)
     private String fileName;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
+    @Column(nullable = false)
     private String parameters;
 
-    @Column(nullable = false)
+    @Column
     private Timestamp date;
 
-    @Column
+    @Column(nullable = false)
     private Integer userId;
 
-    @Column
-    private String status;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private String result;
-
-    @Column
+    @Column(nullable = false)
     private Integer totalFrames;
 
     @Column
     private float fps;
+
+    @Column
+    private String format;
 
     @Transient
     private String modelName;

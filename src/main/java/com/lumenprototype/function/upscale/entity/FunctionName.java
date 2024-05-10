@@ -1,7 +1,7 @@
 package com.lumenprototype.function.upscale.entity;
 
 public enum FunctionName {
-    UPSCALE,
+    UPSCALING,
     DENOISING,
     INPAINTING,
     LIP_SYNC

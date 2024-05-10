@@ -1,10 +1,11 @@
 package com.lumenprototype.function.upscale;
 
 import com.lumenprototype.api.AiService;
-import com.lumenprototype.comm.FileInfo;
 import com.lumenprototype.comm.FileStorageService;
-import com.lumenprototype.comm.VideoInfo;
+import com.lumenprototype.comm.dto.FileInfo;
+import com.lumenprototype.comm.dto.VideoInfo;
 import com.lumenprototype.config.value.FfmpegConfig;
+import com.lumenprototype.exception.CustomException;
 import com.lumenprototype.exception.FileTransferException;
 import com.lumenprototype.exception.MetadataValidationException;
 import com.lumenprototype.exception.ResourceNotFoundException;
@@ -19,7 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -61,8 +65,9 @@ public class UpscaleServiceImpl implements UpscaleService {
                             task.getParameters(),
                             sdf.format(task.getDate()),  // Date 객체를 포맷된 문자열로 변환
                             task.getUserId(),
-                            task.getStatus(),
-                            task.getResult()
+                            task.getTotalFrames(),
+                            task.getFps()
+
                     ))
                     .toList();
 
@@ -91,15 +96,13 @@ public class UpscaleServiceImpl implements UpscaleService {
     @Transactional
     public List<VideoInfo> upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
         validateFile(multipartFile);
-
         String fileName = UUID.randomUUID().toString();
         processingTask.setFileName(fileName);
 
         File file = convertToFile(multipartFile);
         try {
             storeOriginalAndProcessedFiles(file, fileName);
-            storeThumbnail(file, fileName);
-
+            //storeThumbnail(file, fileName);
             if (isPixellModel(processingTask)) {
                 handlePixellProcessing(multipartFile, fileName);
             } else {
@@ -108,6 +111,7 @@ public class UpscaleServiceImpl implements UpscaleService {
 
             updateProcessingTaskWithFrameInfo(processingTask, file);
             saveMetadata(processingTask);
+
 
             return buildVideoInfoList(processingTask);
         } catch (IOException e) {
@@ -136,7 +140,7 @@ public class UpscaleServiceImpl implements UpscaleService {
     // 원본 및 처리된 파일 저장
     private void storeOriginalAndProcessedFiles(File file, String fileName) {
         fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
-        fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
+        //fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
     }
 
     // 썸네일 저장
@@ -157,7 +161,8 @@ public class UpscaleServiceImpl implements UpscaleService {
 
     // 사용자 정의 모델 처리
     private void handleCustomModelProcessing(MultipartFile file, String fileName) {
-        // Implement custom model API communication logic here
+        //File upscaleFile = aiService.videoUpscale(file);
+        //fileStorageService.storeFile(upscaleFile, fileName, FileSuffixType.AFTER);
         log.error("Custom model API processing is not implemented.");
     }
 
@@ -187,7 +192,7 @@ public class UpscaleServiceImpl implements UpscaleService {
         );
     }
 
-    // 비디오의 총 프레임 수와 FPS를 반환하는 메소드
+    // 비디오의 총 프레임 수와 FPS를 반환하는 메소드 (추후 분리)
     public ProcessingTask extractVideoFrameInfo(File file) throws IOException {
         // ffprobe 실행 경로를 가져옵니다.
         String ffprobePath = ffmpegConfig.getFfmpegPath() + "\\ffprobe.exe";
@@ -241,6 +246,47 @@ public class UpscaleServiceImpl implements UpscaleService {
         return null;
     }
 
+    // 썸네일 추출 (추후 분리)
+    public void captureFrameFromVideo(File videoFile, String fileName) {
+        if (videoFile == null || !videoFile.exists()) {
+            throw new IllegalArgumentException("The video file must exist.");
+        }
+
+        String outputFileName = fileName + ".jpg";
+        Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
+        File outputFile = new File(tempDir.toFile(), outputFileName);
+
+        List<String> command = Arrays.asList(
+                ffmpegConfig.getFfmpegPath() + "\\ffmpeg",
+                "-i", videoFile.getAbsolutePath(),
+                "-ss", "00:00:02",
+                "-frames:v", "1",
+                outputFile.getAbsolutePath()
+        );
+
+        ProcessBuilder builder = new ProcessBuilder(command);
+        builder.redirectErrorStream(true);
+        Process process = null;
+
+        try {
+            process = builder.start();
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                throw new IllegalStateException("ffmpeg failed to process video with exit code " + exitCode);
+            }
+            fileStorageService.storeFile(outputFile, fileName, FileSuffixType.IMAGE);
+        } catch (IOException e) {
+            throw new CustomException("Failed to start ffmpeg process", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CustomException("ffmpeg process was interrupted", e);
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
+        }
+    }
+
     // 함수 이름으로 함수 조회
     private Function processFunctionName(ProcessingTask processingTask) throws MetadataValidationException, ResourceNotFoundException {
         String functionNameStr = processingTask.getFunctionName();
@@ -258,6 +304,12 @@ public class UpscaleServiceImpl implements UpscaleService {
         return upscaleRepository.findByFunctionName(functionName)
                 .orElseThrow(() -> new ResourceNotFoundException("Function not found: " + functionNameStr));
     }
+
+
+
+
+
+/*
 
     // 썸네일 추출
     public void captureFrameFromVideo(File videoFile, String fileName) {
@@ -283,7 +335,6 @@ public class UpscaleServiceImpl implements UpscaleService {
             if (process.exitValue() != 0) {
                 throw new IllegalStateException("ffmpeg failed to process video");
             }
-
             fileStorageService.storeFile(outputFile, fileName, FileSuffixType.IMAGE);
         } catch (IOException e) {
             e.printStackTrace();
@@ -292,14 +343,6 @@ public class UpscaleServiceImpl implements UpscaleService {
             e.printStackTrace();
         }
     }
-
-
-
-
-
-
-
-    /*
 
     // 프레임 추출 리턴 객체 반환
     public VideoInfo extractVideoInfo(File file, String beforeUrl) throws IOException {
