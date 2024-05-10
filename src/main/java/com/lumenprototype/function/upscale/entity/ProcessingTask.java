@@ -34,6 +34,9 @@ public class ProcessingTask {
     private String functionName;
 
     @Column(nullable = false)
+    private String origName;
+
+    @Column(nullable = false)
     private String fileName;
 
     @Column(nullable = false)

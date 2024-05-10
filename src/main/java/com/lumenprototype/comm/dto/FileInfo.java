@@ -9,6 +9,7 @@ import lombok.Getter;
 public class FileInfo {
     private Long taskId;
     private String fileName;
+    private String origName;
     private FunctionName functionName;
     private String parameters;
     private String date;

@@ -30,7 +30,6 @@ public class UpscaleController {
     // 업스케일
     @PostMapping("Upscaling")
     public List<VideoInfo> upscaling(@RequestParam("file") MultipartFile file, @ModelAttribute ProcessingTask processingTask) {
-        processingTask.setFunctionName(processingTask.getFunctionName().toUpperCase());
         return upscaleService.upscale(file, processingTask);
     }
 

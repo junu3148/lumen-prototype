@@ -61,6 +61,7 @@ public class UpscaleServiceImpl implements UpscaleService {
                     .map(task -> new FileInfo(
                             task.getTaskId(),
                             task.getFileName() + "_img",
+                            task.getOrigName(),
                             task.getFunction().getFunctionName(),
                             task.getParameters(),
                             sdf.format(task.getDate()),  // Date 객체를 포맷된 문자열로 변환
@@ -95,6 +96,9 @@ public class UpscaleServiceImpl implements UpscaleService {
     @Override
     @Transactional
     public List<VideoInfo> upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
+
+        processFile(multipartFile, processingTask);
+
         validateFile(multipartFile);
         String fileName = UUID.randomUUID().toString();
         processingTask.setFileName(fileName);
@@ -102,7 +106,7 @@ public class UpscaleServiceImpl implements UpscaleService {
         File file = convertToFile(multipartFile);
         try {
             storeOriginalAndProcessedFiles(file, fileName);
-            //storeThumbnail(file, fileName);
+
             if (isPixellModel(processingTask)) {
                 handlePixellProcessing(multipartFile, fileName);
             } else {
@@ -117,6 +121,20 @@ public class UpscaleServiceImpl implements UpscaleService {
         } catch (IOException e) {
             throw new FileTransferException("Failed to process file: " + e.getMessage(), e);
         }
+    }
+
+    // ProcessingTask 속성 추가
+    public void processFile(MultipartFile multipartFile, ProcessingTask processingTask) {
+        // 함수 이름을 대문자로 설정
+        processingTask.setFunctionName(processingTask.getFunctionName().toUpperCase());
+
+        // 파일 이름에서 확장자를 제거
+        Optional.ofNullable(multipartFile.getOriginalFilename())
+                .map(f -> {
+                    int lastDotIndex = f.lastIndexOf('.');
+                    return lastDotIndex == -1 ? f : f.substring(0, lastDotIndex);
+                })
+                .ifPresent(processingTask::setOrigName);
     }
 
     // 파일 유효성 검증
@@ -140,7 +158,6 @@ public class UpscaleServiceImpl implements UpscaleService {
     // 원본 및 처리된 파일 저장
     private void storeOriginalAndProcessedFiles(File file, String fileName) {
         fileStorageService.storeFile(file, fileName, FileSuffixType.BEFORE);
-        //fileStorageService.storeFile(file, fileName, FileSuffixType.AFTER);
     }
 
     // 썸네일 저장
@@ -155,14 +172,16 @@ public class UpscaleServiceImpl implements UpscaleService {
 
     // Pixell 모델 처리
     private void handlePixellProcessing(MultipartFile file, String fileName) {
-        // Implement Pixell API communication logic here
         log.error("Pixell API processing is not implemented.");
     }
 
     // 사용자 정의 모델 처리
     private void handleCustomModelProcessing(MultipartFile file, String fileName) {
-        //File upscaleFile = aiService.videoUpscale(file);
-        //fileStorageService.storeFile(upscaleFile, fileName, FileSuffixType.AFTER);
+        /*
+        File upscaleFile = aiService.videoUpscale(file);
+        fileStorageService.storeFile(upscaleFile, fileName, FileSuffixType.AFTER);
+        storeThumbnail(upscaleFile, fileName);
+        */
         log.error("Custom model API processing is not implemented.");
     }
 
