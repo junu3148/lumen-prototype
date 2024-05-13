@@ -1,4 +1,4 @@
-package com.lumenprototype.function.upscale.entity;
+package com.lumenprototype.function.upscale.en;
 
 public enum FunctionName {
     UPSCALING,

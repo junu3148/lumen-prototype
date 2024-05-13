@@ -1,6 +1,6 @@
-package com.lumenprototype.comm;
+package com.lumenprototype.file;
 
-import com.lumenprototype.function.upscale.entity.FileSuffixType;
+import com.lumenprototype.function.upscale.en.FileSuffixType;
 
 import java.io.File;
 

@@ -1,5 +1,6 @@
 package com.lumenprototype.function.upscale.entity;
 
+import com.lumenprototype.function.upscale.en.FunctionName;
 import jakarta.persistence.*;
 import lombok.Data;
 

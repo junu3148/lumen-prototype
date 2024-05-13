@@ -1,35 +1,31 @@
 package com.lumenprototype.function.upscale;
 
 import com.lumenprototype.api.AiService;
-import com.lumenprototype.comm.FileStorageService;
-import com.lumenprototype.comm.dto.FileInfo;
-import com.lumenprototype.comm.dto.VideoInfo;
 import com.lumenprototype.config.value.FfmpegConfig;
-import com.lumenprototype.exception.CustomException;
 import com.lumenprototype.exception.FileTransferException;
 import com.lumenprototype.exception.MetadataValidationException;
 import com.lumenprototype.exception.ResourceNotFoundException;
-import com.lumenprototype.function.comm.HistoryRequest;
-import com.lumenprototype.function.upscale.entity.FileSuffixType;
+import com.lumenprototype.file.FileStorageService;
+import com.lumenprototype.file.dto.VideoInfo;
+import com.lumenprototype.function.upscale.en.FileSuffixType;
+import com.lumenprototype.function.upscale.en.FunctionName;
 import com.lumenprototype.function.upscale.entity.Function;
-import com.lumenprototype.function.upscale.entity.FunctionName;
 import com.lumenprototype.function.upscale.entity.ProcessingTask;
+import com.lumenprototype.utill.ffmpeg.FfmpegUtils;
+import com.lumenprototype.utill.ffmpeg.VideoInfoUtils;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 
 
 @Slf4j
@@ -42,60 +38,10 @@ public class UpscaleServiceImpl implements UpscaleService {
     private final AiService aiService;
 
 
-    // 히스토리 리시트 조회
-    @Override
-    @Transactional
-    public ResponseEntity<List<FileInfo>> findAllHistory(HistoryRequest historyRequest) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); // 날짜 포맷 정의
-
-        try {
-            List<ProcessingTask> histories = upscaleRepository.findAllByUserIdAndFunctionName(
-                    historyRequest.getUserId(),
-                    historyRequest.getFunctionName()
-            );
-            if (histories.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-
-            List<FileInfo> fileInfos = histories.stream()
-                    .map(task -> new FileInfo(
-                            task.getTaskId(),
-                            task.getFileName() + "_img",
-                            task.getOrigName(),
-                            task.getFunction().getFunctionName(),
-                            task.getParameters(),
-                            sdf.format(task.getDate()),  // Date 객체를 포맷된 문자열로 변환
-                            task.getUserId(),
-                            task.getTotalFrames(),
-                            task.getFps()
-
-                    ))
-                    .toList();
-
-            return ResponseEntity.ok(fileInfos);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    // 히스토리 조회
-    @Override
-    public List<VideoInfo> findHistory(HistoryRequest historyRequest) {
-        // 데이터베이스에서 파일 이름으로 ProcessingTask 검색
-        ProcessingTask processingTask = upscaleRepository.findByFileName(historyRequest.getFileName());
-        if (processingTask == null) {
-            log.info("No task found for the file name: {}", historyRequest.getFileName());
-            return new ArrayList<>(); // 빈 리스트 반환
-        }
-
-        // 비디오 정보 리스트 생성 및 반환
-        return buildVideoInfoList(processingTask);
-    }
-
     // Upscale
     @Override
     @Transactional
-    public List<VideoInfo> upscale(MultipartFile multipartFile, ProcessingTask processingTask) {
+    public List<VideoInfo> upscaling(MultipartFile multipartFile, ProcessingTask processingTask) {
 
         processFile(multipartFile, processingTask);
 
@@ -106,6 +52,7 @@ public class UpscaleServiceImpl implements UpscaleService {
         File file = convertToFile(multipartFile);
         try {
             storeOriginalAndProcessedFiles(file, fileName);
+            storeThumbnail(file, fileName);
 
             if (isPixellModel(processingTask)) {
                 handlePixellProcessing(multipartFile, fileName);
@@ -117,7 +64,7 @@ public class UpscaleServiceImpl implements UpscaleService {
             saveMetadata(processingTask);
 
 
-            return buildVideoInfoList(processingTask);
+            return VideoInfoUtils.buildVideoInfoList(fileStorageService, processingTask);
         } catch (IOException e) {
             throw new FileTransferException("Failed to process file: " + e.getMessage(), e);
         }
@@ -162,7 +109,7 @@ public class UpscaleServiceImpl implements UpscaleService {
 
     // 썸네일 저장
     private void storeThumbnail(File file, String fileName) {
-        captureFrameFromVideo(file, fileName);
+        FfmpegUtils.captureFrameFromVideo(ffmpegConfig, fileStorageService, file, fileName);
     }
 
     // 모델이 Pixell인지 확인
@@ -187,7 +134,7 @@ public class UpscaleServiceImpl implements UpscaleService {
 
     // 프레임 정보를 가지고 처리 작업 업데이트
     private void updateProcessingTaskWithFrameInfo(ProcessingTask task, File file) throws IOException {
-        ProcessingTask result = extractVideoFrameInfo(file);
+        ProcessingTask result = FfmpegUtils.extractVideoFrameInfo(ffmpegConfig, file);
         task.setTotalFrames(result.getTotalFrames());
         task.setFps(result.getFps());
     }
@@ -197,113 +144,6 @@ public class UpscaleServiceImpl implements UpscaleService {
         Function function = processFunctionName(task);
         task.setFunction(function);
         upscaleRepository.save(task);
-    }
-
-    // 비디오 정보 리스트 생성 및 추가
-    private List<VideoInfo> buildVideoInfoList(ProcessingTask task) {
-        String fileName = task.getFileName();
-        String beforeUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.BEFORE);
-        String afterUrl = fileStorageService.getFileUrl(fileName, FileSuffixType.AFTER);
-
-        return Arrays.asList(
-                new VideoInfo(beforeUrl, task.getTotalFrames(), task.getFps()),
-                new VideoInfo(afterUrl, task.getTotalFrames(), task.getFps())
-        );
-    }
-
-    // 비디오의 총 프레임 수와 FPS를 반환하는 메소드 (추후 분리)
-    public ProcessingTask extractVideoFrameInfo(File file) throws IOException {
-        // ffprobe 실행 경로를 가져옵니다.
-        String ffprobePath = ffmpegConfig.getFfmpegPath() + "\\ffprobe.exe";
-
-        // ffprobe 명령을 실행하기 위한 ProcessBuilder를 설정합니다.
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                ffprobePath, "-v", "error",
-                "-show_entries", "stream=duration,r_frame_rate",
-                "-of", "csv=p=0",
-                file.getAbsolutePath()
-        );
-
-        processBuilder.redirectErrorStream(true);
-        Process process = processBuilder.start();
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line = reader.readLine();
-            if (line != null) {
-                // ffprobe 출력 값을 ','로 분리합니다.
-                String[] values = line.split(",");
-                if (values.length >= 2) {
-                    // 비디오 길이를 가져옵니다.
-                    float duration = Float.parseFloat(values[1]);
-                    // 프레임 속도 정보를 분리합니다.
-                    String[] frameRateParts = values[0].split("/");
-
-                    if (frameRateParts.length == 2) {
-                        try {
-                            // 분자와 분모를 파싱하고 계산합니다.
-                            float numerator = Float.parseFloat(frameRateParts[0]);
-                            float denominator = Float.parseFloat(frameRateParts[1]);
-                            float fps = numerator / denominator; // 프레임 속도 계산
-
-                            // 총 프레임 수를 계산합니다.
-                            int totalFrames = (int) (fps * duration);
-
-                            // 결과를 반환합니다.
-                            return new ProcessingTask(totalFrames, fps);
-                        } catch (NumberFormatException e) {
-                            log.error("Error parsing frame rate: {}, error: {}", values[0], e.getMessage());
-                        }
-                    } else {
-                        log.error("Unexpected frame rate format: {}", values[0]);
-                    }
-                } else {
-                    log.error("Unexpected ffprobe output: {}", line);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    // 썸네일 추출 (추후 분리)
-    public void captureFrameFromVideo(File videoFile, String fileName) {
-        if (videoFile == null || !videoFile.exists()) {
-            throw new IllegalArgumentException("The video file must exist.");
-        }
-
-        String outputFileName = fileName + ".jpg";
-        Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
-        File outputFile = new File(tempDir.toFile(), outputFileName);
-
-        List<String> command = Arrays.asList(
-                ffmpegConfig.getFfmpegPath() + "\\ffmpeg",
-                "-i", videoFile.getAbsolutePath(),
-                "-ss", "00:00:02",
-                "-frames:v", "1",
-                outputFile.getAbsolutePath()
-        );
-
-        ProcessBuilder builder = new ProcessBuilder(command);
-        builder.redirectErrorStream(true);
-        Process process = null;
-
-        try {
-            process = builder.start();
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                throw new IllegalStateException("ffmpeg failed to process video with exit code " + exitCode);
-            }
-            fileStorageService.storeFile(outputFile, fileName, FileSuffixType.IMAGE);
-        } catch (IOException e) {
-            throw new CustomException("Failed to start ffmpeg process", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new CustomException("ffmpeg process was interrupted", e);
-        } finally {
-            if (process != null) {
-                process.destroy();
-            }
-        }
     }
 
     // 함수 이름으로 함수 조회
@@ -323,8 +163,6 @@ public class UpscaleServiceImpl implements UpscaleService {
         return upscaleRepository.findByFunctionName(functionName)
                 .orElseThrow(() -> new ResourceNotFoundException("Function not found: " + functionNameStr));
     }
-
-
 
 
 

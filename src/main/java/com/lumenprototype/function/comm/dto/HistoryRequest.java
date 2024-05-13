@@ -1,6 +1,6 @@
-package com.lumenprototype.function.comm;
+package com.lumenprototype.function.comm.dto;
 
-import com.lumenprototype.function.upscale.entity.FunctionName;
+import com.lumenprototype.function.upscale.en.FunctionName;
 import lombok.Data;
 
 @Data

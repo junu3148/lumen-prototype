@@ -25,6 +25,7 @@ spring:
     driver-class-name: org.postgresql.Driver # JDBC 드라이버
 
     jpa:
+      open-in-view: false # 데이터베이스 세션을 뷰 렌더링 동안 열어두지 않음
       show-sql: true # SQL 쿼리를 콘솔에 출력
       hibernate:
         ddl-auto: update # DDL 자동 업데이트

@@ -2,10 +2,13 @@ package com.lumenprototype.config;
 
 import com.lumenprototype.api.AiService;
 import com.lumenprototype.api.AiServiceImpl;
-import com.lumenprototype.comm.FileStorageService;
-import com.lumenprototype.comm.FileStorageServiceImpl;
 import com.lumenprototype.config.value.FfmpegConfig;
 import com.lumenprototype.config.value.FileStorageProperties;
+import com.lumenprototype.file.FileStorageService;
+import com.lumenprototype.file.FileStorageServiceImpl;
+import com.lumenprototype.function.comm.HistoryRepository;
+import com.lumenprototype.function.comm.HistoryService;
+import com.lumenprototype.function.comm.HistoryServiceImpl;
 import com.lumenprototype.function.upscale.UpscaleRepository;
 import com.lumenprototype.function.upscale.UpscaleService;
 import com.lumenprototype.function.upscale.UpscaleServiceImpl;
@@ -43,5 +46,12 @@ public class AppConfig {
     public UpscaleService upscaleService(UpscaleRepository upscaleRepository, FfmpegConfig ffmpegConfig, FileStorageService fileStorageService, AiService aiService) {
         return new UpscaleServiceImpl(upscaleRepository, fileStorageService, ffmpegConfig, aiService);
     }
+
+    // HistoryService
+    @Bean
+    public HistoryService historyService(HistoryRepository historyRepository, FileStorageService fileStorageService) {
+        return new HistoryServiceImpl(historyRepository, fileStorageService);
+    }
+
 
 }

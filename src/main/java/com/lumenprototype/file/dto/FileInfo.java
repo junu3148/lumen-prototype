@@ -1,6 +1,6 @@
-package com.lumenprototype.comm.dto;
+package com.lumenprototype.file.dto;
 
-import com.lumenprototype.function.upscale.entity.FunctionName;
+import com.lumenprototype.function.upscale.en.FunctionName;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

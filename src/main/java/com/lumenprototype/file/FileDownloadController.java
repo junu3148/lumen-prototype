@@ -1,4 +1,4 @@
-package com.lumenprototype.comm;
+package com.lumenprototype.file;
 
 import com.lumenprototype.config.value.FileStorageProperties;
 import lombok.RequiredArgsConstructor;

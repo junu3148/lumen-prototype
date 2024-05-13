@@ -1,9 +1,9 @@
-package com.lumenprototype.comm;
+package com.lumenprototype.file;
 
 
 import com.lumenprototype.config.value.FileStorageProperties;
 import com.lumenprototype.exception.FileStorageException;
-import com.lumenprototype.function.upscale.entity.FileSuffixType;
+import com.lumenprototype.function.upscale.en.FileSuffixType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;

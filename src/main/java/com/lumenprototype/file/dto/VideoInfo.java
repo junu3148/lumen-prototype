@@ -1,4 +1,4 @@
-package com.lumenprototype.comm.dto;
+package com.lumenprototype.file.dto;
 
 import lombok.Builder;
 import lombok.Data;
